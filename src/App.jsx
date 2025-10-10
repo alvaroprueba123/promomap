@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, CircleMarker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import Fuse from 'fuse.js'
 import data from './data/households.json'
@@ -11,8 +11,9 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
 
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import 'leaflet.markercluster' // cluster import estático
 
-// Configurar icono por defecto de Leaflet (no afecta cuando pasamos icono custom)
+/* ========== Icono por defecto Leaflet (no se usa para nuestros puntos, pero evita warnings) ========== */
 const DefaultIcon = L.icon({
   iconUrl,
   iconRetinaUrl: icon2xUrl,
@@ -22,28 +23,20 @@ const DefaultIcon = L.icon({
 })
 L.Marker.prototype.options.icon = DefaultIcon
 
-// Icono minimalista con L.divIcon (usa las clases de tu CSS)
-function minimalIcon(variant = 'blue') {
-  const cls =
-    variant === 'green' ? 'mini-dot green' :
-    variant === 'gray'  ? 'mini-dot gray'  : 'mini-dot'
+/* ========== Punto neón único para TODOS los marcadores ========== */
+const PRIMARY_MARKER_COLOR = '#FF6A3D' // cambia aquí el color global de los puntos
+
+function neonDotIcon(color = PRIMARY_MARKER_COLOR) {
   return L.divIcon({
-    className: '',
-    html: `<div class="${cls}"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -8]
+    className: 'mini-dot2',
+    html: `<div style="background:${color}"></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -10],
   })
 }
 
-// Decide color por promotor (puedes cambiar a sector si prefieres)
-function variantFor(feature) {
-  if (!feature.promoter || feature.promoter === 'Sin asignar') return 'gray'
-  const h = [...feature.promoter].reduce((a,c)=>a+c.charCodeAt(0),0)
-  return h % 2 === 0 ? 'blue' : 'green'
-}
-
-// ===== Util: normalización segura de datos =====
+/* ========== Normalización de datos ========== */
 function useNormalizedData(raw) {
   return useMemo(() => {
     return (raw || [])
@@ -63,22 +56,14 @@ function useNormalizedData(raw) {
   }, [raw])
 }
 
-// ===== Util: geolocalización del usuario (SOLO UNA DEFINICIÓN) =====
+/* ========== Geolocalización ========== */
 function useUserLocation() {
-  const [pos, setPos] = useState(null) // {lat,lng,accuracy}
+  const [pos, setPos] = useState(null)
   useEffect(() => {
     if (!('geolocation' in navigator)) return
     const id = navigator.geolocation.watchPosition(
-      (p) => {
-        setPos({
-          lat: p.coords.latitude,
-          lng: p.coords.longitude,
-          accuracy: p.coords.accuracy ?? 40
-        })
-      },
-      (err) => {
-        console.warn('Geolocation error:', err.message)
-      },
+      p => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy ?? 40 }),
+      err => console.warn('Geolocation error:', err.message),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     )
     return () => navigator.geolocation.clearWatch(id)
@@ -86,16 +71,12 @@ function useUserLocation() {
   return pos
 }
 
-// ===== Componente: Picker de promotor =====
+/* ========== Picker de promotor ========== */
 function PromoterPicker({ list, onPick }) {
   const [q, setQ] = useState('')
-
   const names = useMemo(() => {
     const uniques = Array.from(new Set(list.map(r => r.promoter))).sort()
-    const counts = uniques.map(name => ({
-      name,
-      count: list.filter(r => r.promoter === name).length
-    }))
+    const counts = uniques.map(name => ({ name, count: list.filter(r => r.promoter === name).length }))
     if (!q.trim()) return counts
     const fuse = new Fuse(counts, { keys: ['name'], threshold: 0.3 })
     return fuse.search(q).map(r => r.item)
@@ -115,11 +96,7 @@ function PromoterPicker({ list, onPick }) {
       </div>
       <div className="grid">
         {names.map(p => (
-          <button
-            key={p.name}
-            className="promoItem"
-            onClick={() => onPick(p.name)}
-          >
+          <button key={p.name} className="promoItem" onClick={() => onPick(p.name)}>
             <div className="promoName">{p.name}</div>
             <div className="promoCount">{p.count} puntos asignados</div>
           </button>
@@ -130,63 +107,44 @@ function PromoterPicker({ list, onPick }) {
   )
 }
 
-// ===== Capa de clúster con carga dinámica y fallback =====
+/* ========== Capa de clúster (con fallback) ========== */
 function ClusterLayer({ points }) {
   const map = useMap()
-  const clusterRef = useRef(null)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-    import('leaflet.markercluster')
-      .then(() => { if (mounted) setReady(true) })
-      .catch((e) => {
-        console.warn('No se pudo cargar leaflet.markercluster, usando marcadores simples.', e)
-        setReady(false)
-      })
-    return () => { mounted = false }
-  }, [])
+  const layerRef = useRef(null)
 
   useEffect(() => {
     if (!map) return
 
-    // Limpia capa previa
-    if (clusterRef.current) {
-      clusterRef.current.clearLayers()
-      map.removeLayer(clusterRef.current)
-      clusterRef.current = null
+    if (layerRef.current) {
+      layerRef.current.clearLayers?.()
+      map.removeLayer(layerRef.current)
+      layerRef.current = null
     }
 
-    // Fallback: marcadores simples (sin clustering) con icono minimalista y popup clean
-    if (!ready || typeof L.markerClusterGroup !== 'function') {
+    const makeHtml = f => `
+      <div class="popupCard">
+        ${f.photo ? `<img class="popupPhoto" src="${f.photo}" alt="${f.headName || ''}" />` : ''}
+        <h3 class="popupTitle">${(f.headName || 'Sin nombre')}</h3>
+        ${f.address ? `<div class="popupRow">📍 ${f.address}</div>` : ''}
+        ${f.phone ? `<div class="popupRow">📞 <a href="tel:${String(f.phone)}">${String(f.phone)}</a></div>` : ''}
+        ${f.dni ? `<div class="popupRow">🪪 DNI: ${String(f.dni)}</div>` : ''}
+        ${f.notes ? `<div class="popupRow">📝 ${f.notes}</div>` : ''}
+      </div>
+    `
+
+    const supportsCluster = typeof L.markerClusterGroup === 'function'
+    if (!supportsCluster) {
       const layer = L.layerGroup()
       points.forEach(f => {
-        const m = L.marker([f.lat, f.lng], { icon: minimalIcon(variantFor(f)) })
-        const html = `
-          <div class="popupCard">
-            ${f.photo ? `<img class="popupPhoto" src="${f.photo}" alt="${f.headName || ''}" />` : ''}
-            <h3 class="popupTitle">${(f.headName || 'Sin nombre')}</h3>
-            ${f.address ? `<div class="popupRow">📍 ${f.address}</div>` : ''}
-            ${f.phone ? `<div class="popupRow">📞 <a href="tel:${String(f.phone)}">${String(f.phone)}</a></div>` : ''}
-            ${f.dni ? `<div class="popupRow">🪪 DNI: ${String(f.dni)}</div>` : ''}
-            ${f.notes ? `<div class="popupRow">📝 ${f.notes}</div>` : ''}
-          </div>
-        `
-        m.bindPopup(html, { maxWidth: 320, className: 'cleanPopup' })
+        const m = L.marker([f.lat, f.lng], { icon: neonDotIcon() })
+        m.bindPopup(makeHtml(f), { maxWidth: 320, className: 'cleanPopup' })
         layer.addLayer(m)
       })
       layer.addTo(map)
-      clusterRef.current = layer
-      return () => {
-        if (clusterRef.current) {
-          clusterRef.current.clearLayers()
-          map.removeLayer(clusterRef.current)
-          clusterRef.current = null
-        }
-      }
+      layerRef.current = layer
+      return () => map.removeLayer(layer)
     }
 
-    // Clustering real con iconos minimalistas y popup clean
     const cluster = L.markerClusterGroup({
       chunkedLoading: true,
       maxClusterRadius: 50,
@@ -200,56 +158,34 @@ function ClusterLayer({ points }) {
         return L.divIcon({
           html: `<div>${count}</div>`,
           className: `marker-cluster marker-cluster-${size}`,
-          iconSize: L.point(40, 40, true)
+          iconSize: L.point(40, 40, true),
         })
-      }
+      },
     })
 
     points.forEach(f => {
-      const m = L.marker([f.lat, f.lng], { icon: minimalIcon(variantFor(f)) })
-      const html = `
-        <div class="popupCard">
-          ${f.photo ? `<img class="popupPhoto" src="${f.photo}" alt="${f.headName || ''}" />` : ''}
-          <h3 class="popupTitle">${(f.headName || 'Sin nombre')}</h3>
-          ${f.address ? `<div class="popupRow">📍 ${f.address}</div>` : ''}
-          ${f.phone ? `<div class="popupRow">📞 <a href="tel:${String(f.phone)}">${String(f.phone)}</a></div>` : ''}
-          ${f.dni ? `<div class="popupRow">🪪 DNI: ${String(f.dni)}</div>` : ''}
-          ${f.notes ? `<div class="popupRow">📝 ${f.notes}</div>` : ''}
-        </div>
-      `
-      m.bindPopup(html, { maxWidth: 320, className: 'cleanPopup' })
+      const m = L.marker([f.lat, f.lng], { icon: neonDotIcon() })
+      m.bindPopup(makeHtml(f), { maxWidth: 320, className: 'cleanPopup' })
       cluster.addLayer(m)
     })
 
     cluster.addTo(map)
-    clusterRef.current = cluster
-
-    return () => {
-      if (clusterRef.current) {
-        clusterRef.current.clearLayers()
-        map.removeLayer(clusterRef.current)
-        clusterRef.current = null
-      }
-    }
-  }, [map, points, ready])
+    layerRef.current = cluster
+    return () => map.removeLayer(cluster)
+  }, [map, points])
 
   return null
 }
 
-// ===== Vista: Lista (tarjetas simples + modal de detalle) =====
+/* ========== Lista (tarjetas simples + modal) ========== */
 function ListView({ features }) {
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState(null)
 
   const list = useMemo(() => {
-    const sorted = [...features].sort((a, b) =>
-      (a.headName || '').localeCompare(b.headName || '')
-    )
+    const sorted = [...features].sort((a, b) => (a.headName || '').localeCompare(b.headName || ''))
     if (!q.trim()) return sorted
-    const fuse = new Fuse(sorted, {
-      keys: ['headName', 'address', 'dni', 'phone'],
-      threshold: 0.35
-    })
+    const fuse = new Fuse(sorted, { keys: ['headName', 'address', 'dni', 'phone'], threshold: 0.35 })
     return fuse.search(q).map(r => r.item)
   }, [features, q])
 
@@ -266,7 +202,6 @@ function ListView({ features }) {
           <span className="badge">{list.length} resultado(s)</span>
         </div>
 
-        {/* Tarjetas simples */}
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))' }}>
           {list.map(f => (
             <button
@@ -277,18 +212,13 @@ function ListView({ features }) {
               title="Ver detalles"
             >
               <div className="promoName">{f.headName || 'Sin nombre'}</div>
-                {f.phone && (
-                  <div className="row phone">📞 {f.phone}</div>
-                )}
-                {f.address && (
-                  <div className="row address">📍 {f.address}</div>
-                )}
+              {f.phone && <div className="row phone">📞 {f.phone}</div>}
+              {f.address && <div className="row address">📍 {f.address}</div>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Modal de detalle */}
       {detail && (
         <div className="modal-overlay" onClick={() => setDetail(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -299,17 +229,13 @@ function ListView({ features }) {
 
             <div className="meta">ID: {detail.id}{detail.dni ? ` · DNI: ${detail.dni}` : ''}</div>
 
-            {detail.photo && (
-              <img className="photo" src={detail.photo} alt={detail.headName} />
-            )}
+            {detail.photo && <img className="photo" src={detail.photo} alt={detail.headName} />}
 
             {detail.address && <div className="row">📍 {detail.address}</div>}
             {detail.sector && <div className="row">🏷️ {detail.sector}</div>}
             {detail.phone && (
               <div className="row">
-                📞 <a href={`tel:${detail.phone}`} onClick={e => e.stopPropagation()}>
-                  {detail.phone}
-                </a>
+                📞 <a href={`tel:${detail.phone}`} onClick={e => e.stopPropagation()}>{detail.phone}</a>
               </div>
             )}
             {detail.notes && <div className="row">📝 {detail.notes}</div>}
@@ -333,15 +259,14 @@ function ListView({ features }) {
   )
 }
 
-// ===== Vista: Mapa =====
-// ===== Vista: Mapa =====
+/* ========== Mapa (pantalla completa real + centrar + buscador en FS) ========== */
 function MapView({ features }) {
   const userPos = useUserLocation()
   const [full, setFull] = useState(false)
-  const [fsQuery, setFsQuery] = useState('') // buscador solo en full-screen
+  const [fsQuery, setFsQuery] = useState('')
   const mapRef = useRef(null)
+  const shellRef = useRef(null)
 
-  // Normaliza y filtra (en full-screen, por jefe de familia)
   const points = useMemo(() => {
     const base = features
       .map(f => ({ ...f, lat: Number(f.lat), lng: Number(f.lng) }))
@@ -352,48 +277,51 @@ function MapView({ features }) {
   }, [features, full, fsQuery])
 
   const center = useMemo(() => {
-    if (points.length === 0) return [-12.0464, -77.0428] // Lima
+    if (points.length === 0) return [-12.0464, -77.0428]
     const lat = points.reduce((s, f) => s + f.lat, 0) / points.length
     const lng = points.reduce((s, f) => s + f.lng, 0) / points.length
     return [lat, lng]
   }, [points])
 
-  // key para forzar re-montaje del mapa si cambia el modo
   const mapKey = `${points.length}-${full ? 1 : 0}`
 
-  // Centrar en la ubicación del usuario
   const centerOnMe = () => {
     if (userPos && mapRef.current) {
       mapRef.current.setView([userPos.lat, userPos.lng], 17, { animate: true })
     }
   }
 
-  // Al entrar en full: bloquear scroll del body y habilitar salida con Esc
+  const enterFull = async () => {
+    setFull(true)
+    try { await shellRef.current?.requestFullscreen?.() } catch {}
+  }
+  const exitFull = async () => {
+    setFull(false)
+    try { if (document.fullscreenElement) await document.exitFullscreen() } catch {}
+  }
+
   useEffect(() => {
-    const onEsc = (e) => { if (e.key === 'Escape') setFull(false) }
+    const onEsc = (e) => { if (e.key === 'Escape') exitFull() }
     if (full) {
       document.body.style.overflow = 'hidden'
       window.addEventListener('keydown', onEsc)
     } else {
       document.body.style.overflow = ''
-      setFsQuery('') // limpia el buscador al salir
+      setFsQuery('')
       window.removeEventListener('keydown', onEsc)
     }
     return () => window.removeEventListener('keydown', onEsc)
   }, [full])
 
   return (
-    <div className={`mapShell ${full ? 'full' : ''}`}>
-      {/* Controles superpuestos */}
+    <div ref={shellRef} className={`mapShell ${full ? 'full' : ''}`}>
       <div className="mapControls">
-        <button className="btn" onClick={() => setFull(v => !v)}>
-          {full ? 'Salir pantalla completa' : 'Pantalla completa'}
-        </button>
-        <button className="btn" onClick={centerOnMe} disabled={!userPos}>
-          Centrar en mí
-        </button>
-
-        {/* Buscador solo en full-screen */}
+        {!full ? (
+          <button className="btn" onClick={enterFull}>Pantalla completa</button>
+        ) : (
+          <button className="btn" onClick={exitFull}>Salir pantalla completa</button>
+        )}
+        <button className="btn" onClick={centerOnMe} disabled={!userPos}>Centrar en mí</button>
         {full && (
           <input
             className="mapSearch"
@@ -417,7 +345,6 @@ function MapView({ features }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Ubicación del usuario */}
         {userPos && (
           <>
             <Circle
@@ -433,50 +360,28 @@ function MapView({ features }) {
           </>
         )}
 
-        {/* Capa de clustering (con fallback automático) */}
         <ClusterLayer points={points} />
       </MapContainer>
     </div>
   )
 }
 
-
-// ===== Dashboard con pestañas =====
+/* ========== Dashboard & App ========== */
 function Dashboard({ promoter, all, onBack }) {
-  const mine = useMemo(
-    () => all.filter(x => x.promoter === promoter),
-    [all, promoter]
-  )
-  const [tab, setTab] = useState('list') // 'list' | 'map'
+  const mine = useMemo(() => all.filter(x => x.promoter === promoter), [all, promoter])
+  const [tab, setTab] = useState('list')
 
   return (
     <div className="promos" style={{ paddingTop: 0 }}>
       <div className="toolbar card" style={{ padding: 10, marginBottom: 12 }}>
-        <button className="btn" onClick={onBack}>
-          ← Cambiar promotor
-        </button>
-        <span className="badge">
-          Promotor: <strong>{promoter}</strong>
-        </span>
+        <button className="btn" onClick={onBack}>← Cambiar promotor</button>
+        <span className="badge">Promotor: <strong>{promoter}</strong></span>
         <span className="legend">{mine.length} punto(s) asignados</span>
       </div>
 
-      <div
-        className="card"
-        style={{ padding: 8, marginBottom: 12, display: 'flex', gap: 8 }}
-      >
-        <button
-          className={`btn ${tab === 'list' ? 'primary' : ''}`}
-          onClick={() => setTab('list')}
-        >
-          📋 Lista
-        </button>
-        <button
-          className={`btn ${tab === 'map' ? 'primary' : ''}`}
-          onClick={() => setTab('map')}
-        >
-          🗺️ Mapa
-        </button>
+      <div className="card" style={{ padding: 8, marginBottom: 12, display: 'flex', gap: 8 }}>
+        <button className={`btn ${tab === 'list' ? 'primary' : ''}`} onClick={() => setTab('list')}>📋 Lista</button>
+        <button className={`btn ${tab === 'map' ? 'primary' : ''}`} onClick={() => setTab('map')}>🗺️ Mapa</button>
       </div>
 
       {tab === 'list' ? <ListView features={mine} /> : <MapView features={mine} />}
@@ -484,26 +389,22 @@ function Dashboard({ promoter, all, onBack }) {
   )
 }
 
-// ===== Componente principal =====
 export default function App() {
-  const normalized = useNormalizedData(data) // robusto ante tipos/campos vacíos
-  const [stage, setStage] = useState('pick') // 'pick' | 'dash'
+  const normalized = useNormalizedData(data)
+  const [stage, setStage] = useState('pick')
   const [promoter, setPromoter] = useState(null)
 
   return (
     <div className="app">
       <header className="header">
         <div className="brand">📍 Mapa de Promotores</div>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Versión 1.2</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Versión 1.4</div>
       </header>
 
       {stage === 'pick' && (
         <PromoterPicker
           list={normalized}
-          onPick={name => {
-            setPromoter(name)
-            setStage('dash')
-          }}
+          onPick={name => { setPromoter(name); setStage('dash') }}
         />
       )}
 

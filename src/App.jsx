@@ -334,15 +334,22 @@ function ListView({ features }) {
 }
 
 // ===== Vista: Mapa =====
+// ===== Vista: Mapa =====
 function MapView({ features }) {
   const userPos = useUserLocation()
   const [full, setFull] = useState(false)
+  const [fsQuery, setFsQuery] = useState('') // buscador solo en full-screen
+  const mapRef = useRef(null)
 
+  // Normaliza y filtra (en full-screen, por jefe de familia)
   const points = useMemo(() => {
-    return features
+    const base = features
       .map(f => ({ ...f, lat: Number(f.lat), lng: Number(f.lng) }))
       .filter(f => Number.isFinite(f.lat) && Number.isFinite(f.lng))
-  }, [features])
+    if (!full || !fsQuery.trim()) return base
+    const q = fsQuery.trim().toLowerCase()
+    return base.filter(f => (f.headName || '').toLowerCase().includes(q))
+  }, [features, full, fsQuery])
 
   const center = useMemo(() => {
     if (points.length === 0) return [-12.0464, -77.0428] // Lima
@@ -351,19 +358,60 @@ function MapView({ features }) {
     return [lat, lng]
   }, [points])
 
-  // key para forzar re-montaje del mapa si se traba por estilos/estado
+  // key para forzar re-montaje del mapa si cambia el modo
   const mapKey = `${points.length}-${full ? 1 : 0}`
+
+  // Centrar en la ubicación del usuario
+  const centerOnMe = () => {
+    if (userPos && mapRef.current) {
+      mapRef.current.setView([userPos.lat, userPos.lng], 17, { animate: true })
+    }
+  }
+
+  // Al entrar en full: bloquear scroll del body y habilitar salida con Esc
+  useEffect(() => {
+    const onEsc = (e) => { if (e.key === 'Escape') setFull(false) }
+    if (full) {
+      document.body.style.overflow = 'hidden'
+      window.addEventListener('keydown', onEsc)
+    } else {
+      document.body.style.overflow = ''
+      setFsQuery('') // limpia el buscador al salir
+      window.removeEventListener('keydown', onEsc)
+    }
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [full])
 
   return (
     <div className={`mapShell ${full ? 'full' : ''}`}>
-      <div style={{position:'absolute', zIndex:999, display:'flex', gap:8, padding:10}}>
-        <button className="btn" onClick={()=>setFull(v=>!v)}>
-          {full ? 'Salir de pantalla completa' : 'Pantalla completa'}
+      {/* Controles superpuestos */}
+      <div className="mapControls">
+        <button className="btn" onClick={() => setFull(v => !v)}>
+          {full ? 'Salir pantalla completa' : 'Pantalla completa'}
         </button>
-        {userPos && <span className="badge">📍 Estás aquí (~{Math.round(userPos.accuracy)} m)</span>}
+        <button className="btn" onClick={centerOnMe} disabled={!userPos}>
+          Centrar en mí
+        </button>
+
+        {/* Buscador solo en full-screen */}
+        {full && (
+          <input
+            className="mapSearch"
+            placeholder="Buscar jefe de familia..."
+            value={fsQuery}
+            onChange={(e) => setFsQuery(e.target.value)}
+          />
+        )}
       </div>
 
-      <MapContainer key={mapKey} center={center} zoom={14} scrollWheelZoom style={{ width:'100%', height:'100%' }}>
+      <MapContainer
+        key={mapKey}
+        center={center}
+        zoom={14}
+        scrollWheelZoom
+        style={{ width:'100%', height:'100%' }}
+        whenCreated={(map) => { mapRef.current = map }}
+      >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -372,8 +420,16 @@ function MapView({ features }) {
         {/* Ubicación del usuario */}
         {userPos && (
           <>
-            <Circle center={[userPos.lat, userPos.lng]} radius={Math.max(20, userPos.accuracy||40)} pathOptions={{ color:'#1e90ff', opacity:.35, fillOpacity:.1 }} />
-            <CircleMarker center={[userPos.lat, userPos.lng]} radius={7} pathOptions={{ color:'#1e90ff', fill:true, fillOpacity:1 }} />
+            <Circle
+              center={[userPos.lat, userPos.lng]}
+              radius={Math.max(20, userPos.accuracy || 40)}
+              pathOptions={{ color:'#1e90ff', opacity:.35, fillOpacity:.1 }}
+            />
+            <CircleMarker
+              center={[userPos.lat, userPos.lng]}
+              radius={7}
+              pathOptions={{ color:'#1e90ff', fill:true, fillOpacity:1 }}
+            />
           </>
         )}
 
@@ -383,6 +439,7 @@ function MapView({ features }) {
     </div>
   )
 }
+
 
 // ===== Dashboard con pestañas =====
 function Dashboard({ promoter, all, onBack }) {

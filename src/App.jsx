@@ -285,13 +285,38 @@ function MapView({ features }) {
 
   const mapKey = `${points.length}-${full ? 1 : 0}`
 
-  const centerOnMe = () => {
-    if (userPos && mapRef.current && typeof mapRef.current.setView === 'function') {
-      mapRef.current.setView([userPos.lat, userPos.lng], 17, { animate: true })
-    } else {
-      console.warn("No se pudo centrar: mapa o ubicación no disponible")
-    }
+// Dentro de MapView
+const centerOnMe = () => {
+  const map = mapRef.current
+  if (!map) {
+    console.warn('No se pudo centrar: mapa aún no está listo')
+    return
   }
+
+  // Si ya tenemos posición del hook, centramos directo
+  if (userPos?.lat && userPos?.lng) {
+    map.flyTo([userPos.lat, userPos.lng], 17, { duration: 0.8 })
+    return
+  }
+
+  // Fallback: pedimos una ubicación "on demand"
+  map.once('locationfound', (e) => {
+    map.flyTo(e.latlng, 17, { duration: 0.8 })
+  })
+  map.once('locationerror', (e) => {
+    alert('No pudimos obtener tu ubicación. Verifica permisos de geolocalización y que estés en HTTPS.')
+    console.warn('locationerror:', e)
+  })
+
+  map.locate({
+    enableHighAccuracy: true,
+    setView: false, // centramos nosotros en el evento
+    maxZoom: 17,
+    watch: false,
+    timeout: 10000
+  })
+}
+
 
 
   const enterFull = async () => {

@@ -319,7 +319,7 @@ button { cursor:pointer; }
   background: var(--accent-2);     /* 🔹 relleno sólido visible */
   border: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,.4), 
-              0 0 0 3px rgba(96,165,250,.35);
+              0 0 0 3px rgba(6, 255, 2, 0.35);
 }
 .leaflet-marker-icon .mini-dot2 { transition: transform .12s ease; }
 .leaflet-marker-icon:hover .mini-dot2 { transform: scale(1.08); }

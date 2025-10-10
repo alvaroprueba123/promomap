@@ -266,6 +266,7 @@ function MapView({ features }) {
   const [fsQuery, setFsQuery] = useState('')
   const mapRef = useRef(null)
   const shellRef = useRef(null)
+  const [mapReady, setMapReady] = useState(false) // 👈 nuevo
 
   const points = useMemo(() => {
     const base = features
@@ -283,41 +284,38 @@ function MapView({ features }) {
     return [lat, lng]
   }, [points])
 
+  // ⚠️ Al re-montar (por pantalla completa) el mapa se recrea; volvemos a false
   const mapKey = `${points.length}-${full ? 1 : 0}`
 
-// Dentro de MapView
-const centerOnMe = () => {
-  const map = mapRef.current
-  if (!map) {
-    console.warn('No se pudo centrar: mapa aún no está listo')
-    return
+  const centerOnMe = () => {
+    const map = mapRef.current
+    if (!map) {
+      console.warn('No se pudo centrar: mapa aún no está listo')
+      return
+    }
+
+    // si ya hay userPos: centramos de inmediato
+    if (userPos?.lat && userPos?.lng) {
+      map.flyTo([userPos.lat, userPos.lng], 17, { duration: 0.8 })
+      return
+    }
+
+    // si no hay userPos: pedimos 1 sola vez la localización al mapa
+    map.once('locationfound', (e) => {
+      map.flyTo(e.latlng, 17, { duration: 0.8 })
+    })
+    map.once('locationerror', (e) => {
+      alert('No pudimos obtener tu ubicación. Revisa permisos de geolocalización.')
+      console.warn('locationerror:', e)
+    })
+    map.locate({
+      enableHighAccuracy: true,
+      setView: false,
+      maxZoom: 17,
+      watch: false,
+      timeout: 10000
+    })
   }
-
-  // Si ya tenemos posición del hook, centramos directo
-  if (userPos?.lat && userPos?.lng) {
-    map.flyTo([userPos.lat, userPos.lng], 17, { duration: 0.8 })
-    return
-  }
-
-  // Fallback: pedimos una ubicación "on demand"
-  map.once('locationfound', (e) => {
-    map.flyTo(e.latlng, 17, { duration: 0.8 })
-  })
-  map.once('locationerror', (e) => {
-    alert('No pudimos obtener tu ubicación. Verifica permisos de geolocalización y que estés en HTTPS.')
-    console.warn('locationerror:', e)
-  })
-
-  map.locate({
-    enableHighAccuracy: true,
-    setView: false, // centramos nosotros en el evento
-    maxZoom: 17,
-    watch: false,
-    timeout: 10000
-  })
-}
-
-
 
   const enterFull = async () => {
     setFull(true)
@@ -349,7 +347,14 @@ const centerOnMe = () => {
         ) : (
           <button className="btn" onClick={exitFull}>Salir pantalla completa</button>
         )}
-        <button className="btn" onClick={centerOnMe} disabled={!userPos}>Centrar en mí</button>
+        <button
+          className="btn"
+          onClick={centerOnMe}
+          disabled={!mapReady}              // 👈 desactivado hasta que el mapa esté listo
+          title={!mapReady ? 'Cargando mapa…' : 'Centrar en mi posición'}
+        >
+          Centrar en mí
+        </button>
         {full && (
           <input
             className="mapSearch"
@@ -366,7 +371,12 @@ const centerOnMe = () => {
         zoom={14}
         scrollWheelZoom
         style={{ width:'100%', height:'100%' }}
-        whenCreated={(map) => { mapRef.current = map }}
+        whenCreated={(map) => {
+          mapRef.current = map
+          setMapReady(true)      // 👈 marcamos listo cuando existe el mapa
+          // y por si hace falta esperar la carga inicial de tiles:
+          map.once('load', () => setMapReady(true))
+        }}
       >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
@@ -394,6 +404,7 @@ const centerOnMe = () => {
   )
 }
 
+
 /* ========== Dashboard & App ========== */
 function Dashboard({ promoter, all, onBack }) {
   const mine = useMemo(() => all.filter(x => x.promoter === promoter), [all, promoter])
@@ -416,6 +427,17 @@ function Dashboard({ promoter, all, onBack }) {
     </div>
   )
 }
+
+function neonDotIcon(color = PRIMARY_MARKER_COLOR) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="mini-dot2" style="background:${color}"></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -10],
+  })
+}
+
 
 export default function App() {
   const normalized = useNormalizedData(data)

@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
-        name: 'Mapa de promotoras',
+        name: 'Promomap',
         short_name: 'Promomap',
         start_url: '/',
         display: 'standalone',

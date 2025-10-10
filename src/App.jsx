@@ -428,17 +428,6 @@ function Dashboard({ promoter, all, onBack }) {
   )
 }
 
-function neonDotIcon(color = PRIMARY_MARKER_COLOR) {
-  return L.divIcon({
-    className: '',
-    html: `<div class="mini-dot2" style="background:${color}"></div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    popupAnchor: [0, -10],
-  })
-}
-
-
 export default function App() {
   const normalized = useNormalizedData(data)
   const [stage, setStage] = useState('pick')

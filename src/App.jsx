@@ -286,10 +286,13 @@ function MapView({ features }) {
   const mapKey = `${points.length}-${full ? 1 : 0}`
 
   const centerOnMe = () => {
-    if (userPos && mapRef.current) {
+    if (userPos && mapRef.current && typeof mapRef.current.setView === 'function') {
       mapRef.current.setView([userPos.lat, userPos.lng], 17, { animate: true })
+    } else {
+      console.warn("No se pudo centrar: mapa o ubicación no disponible")
     }
   }
+
 
   const enterFull = async () => {
     setFull(true)

@@ -4992,15 +4992,87 @@
     "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F454326bb-f208-4bce-8bfb-34752eaf8d23%2FIMG_20250612_151857190-15_19_17.jpg"
   },
   {
-    "headName": "LIDIA SHAPIAMA GURRIETA",
-    "phone": "900884358",
-    "dni": "1013494",
-    "address": "Mz. M LT. 9 PJ. LOS CLAVELES- comité vecinal #34",
-    "sector": "Jose Carlos Mariategui",
-    "id": "6075",
-    "promoter": "SG",
-    "lat": "-12.153356",
-    "lng": "-76.949656",
-    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F3d4ad650-a038-4f6b-8870-654fb7f61c05%2F17498285040621295676525534479025-10_28_48.jpg"
+    "headName": "Luis condor manchi",
+    "phone": "991187256",
+    "dni": "73772168",
+    "address": "Mz Nlt14 AAHH Santa Rosa",
+    "sector": "Nuevo Milenio",
+    "id": "1399",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.211279",
+    "lng": "-76.921056",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F6a1d91a7-e488-453a-b3c9-d02adb7ebc45%2F1000530716-20_32_37.jpg"
+  },
+  {
+    "headName": "Yolanda Ramos",
+    "phone": "937373507",
+    "dni": "9675637",
+    "address": "Mz Y 1 comité 5 Ciudad de Gosen",
+    "sector": "Nuevo Milenio",
+    "id": "1125",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.211172",
+    "lng": "-76.920823",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2Fcae77b33-ac14-4ee3-8904-409cf7a8e1cf%2F1000209943-17_50_5.jpg"
+  },
+  {
+    "headName": "Gladys Colniña",
+    "phone": "901420767",
+    "dni": "No brinda",
+    "address": "Pasaje Álamos Mz H Lt 3 Ampliación Ciudad de Gosen",
+    "sector": "Nuevo Milenio",
+    "id": "1087",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.211027",
+    "lng": "-76.920602",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F111319aa-229d-4870-8a0c-f21542c35609%2F1000209820-16_29_25.jpg"
+  },
+  {
+    "headName": "Willian poma viamonte",
+    "phone": "921431701",
+    "dni": "73257846",
+    "address": "MzA lt16 AAHH Santa Rosa",
+    "sector": "Nuevo Milenio",
+    "id": "1397",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.210902",
+    "lng": "-76.920981",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F9a9bf983-f6e6-4eee-a443-f5d414ad224a%2F1000530706-20_18_23.jpg"
+  },
+  {
+    "headName": "Elva lisarda",
+    "phone": "932072150",
+    "dni": "40648963",
+    "address": "Mz L. lote 1  Ciudad de Gosen",
+    "sector": "Nuevo Milenio",
+    "id": "1134",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.210906",
+    "lng": "-76.921169",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F103c937f-1e74-4efb-aa77-4109bcb117a9%2F1000209966-18_4_10.jpg"
+  },
+  {
+    "headName": "Ayeede pauccar peña",
+    "phone": "930893983",
+    "dni": "41714709",
+    "address": "MzOlt2  Pasaje Santa Rosa",
+    "sector": "Nuevo Milenio",
+    "id": "737",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.21074",
+    "lng": "-76.921629",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2F9909a8b8-a76d-4433-9fc7-27daef0c70f6%2F1000527589-17_55_46.jpg"
+  },
+  {
+    "headName": "Rene cahuana poma",
+    "phone": "945857397",
+    "dni": "2444345",
+    "address": "Mzg lt 9  Pasaje santa rosa",
+    "sector": "Tablada de Lurín",
+    "id": "724",
+    "promoter": "Wendy Zumaeta",
+    "lat": "-12.210595",
+    "lng": "-76.921208",
+    "photo": "https://kc.kobotoolbox.org/media/original?media_file=alvaro_escuelar%2Fattachments%2Fb489648379a248ae9a50b5b25f15d5ca%2Fa0926966-96a5-488a-b3ba-c0072399f10a%2F1000527559-17_30_42.jpg"
   }
 ]
